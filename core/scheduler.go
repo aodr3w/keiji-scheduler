@@ -25,12 +25,20 @@ import (
 	"github.com/joho/godotenv"
 )
 
+/*
+stopChanData encapsulates all the signal data
+that can be sent to a running task
+*/
 type stopChanData struct {
 	disable bool
 	stop    bool
 	delete  bool
 }
 
+/*
+Executor type provides access to primitives and
+functions that facilitate concurrent execution of tasks
+*/
 type Executor struct {
 	repo       *db.Repo
 	logger     *logger.Logger
@@ -41,6 +49,9 @@ type Executor struct {
 	wg         *sync.WaitGroup
 }
 
+/*
+days map , maps string `day values` to time.Day values
+*/
 var days = map[string]int64{
 	"Sunday":    int64(time.Sunday),
 	"Monday":    int64(time.Monday),
@@ -51,6 +62,9 @@ var days = map[string]int64{
 	"Saturday":  int64(time.Saturday),
 }
 
+/*
+NewExecutor is a factory function for the Executor type
+*/
 func NewExecutor() (*Executor, error) {
 	repo, err := db.NewRepo()
 	if err != nil {
@@ -72,6 +86,11 @@ func NewExecutor() (*Executor, error) {
 	}, nil
 }
 
+/*
+executor.Stop function gracefully stops the executor instance,
+by propagating a stop singal via context (to cancel running tasks)
+and closing the executor's db session via e.repo.Close()
+*/
 func (e *Executor) Stop() {
 	e.logger.Warn("stopping executor...")
 	e.markAllTasksAsNotRunning()
@@ -81,6 +100,10 @@ func (e *Executor) Stop() {
 	e.repo.Close()
 }
 
+/*
+dayNum function returns an int64 representation of day string
+if valid otherwise  -1 and an error are returned
+*/
 func (e *Executor) DayNum(day string) (int64, error) {
 	num, ok := days[day]
 	if !ok {
@@ -89,6 +112,11 @@ func (e *Executor) DayNum(day string) (int64, error) {
 	return num, nil
 }
 
+/*
+markAllTasksAsNotRunning as its name suggests
+sets all tasks to is_running = false. This function is called
+during the shutdown of an executor
+*/
 func (e *Executor) markAllTasksAsNotRunning() {
 	tasks, err := e.repo.GetRunningTasks()
 	if err != nil {
@@ -106,6 +134,12 @@ func (e *Executor) markAllTasksAsNotRunning() {
 	}
 }
 
+/*
+The start function starts the executor by peforming three actions concurrently
+* loading tasks into a queue
+* reading and running each task from the queue
+* listening to a TCP bus for new messages like stop and restart signals
+*/
 func (e *Executor) Start() {
 	//load tasks from db
 	go func() {
@@ -127,53 +161,64 @@ func (e *Executor) Start() {
 		}
 	}()
 
-	//listent to executor queue or tasks
+	//run tasks
 	e.wg.Add(1)
 	go func() {
 		e.RunTasks()
 		defer e.wg.Done()
 	}()
 
+	//listen to tcp-bus pull port for new messages
 	go func() {
-		e.logger.Info("starting tcpbus listener")
-		for {
-			select {
-			case <-e.ctx.Done():
-				e.logger.Info("stopping tcp-bus listener")
-				return
-			default:
-				time.Sleep(100 * time.Millisecond)
-				conn, err := net.Dial("tcp", client.PULL_PORT)
-				if err != nil {
-					e.logger.Error("%v", err)
-					continue
-				}
-				data, err := io.ReadAll(conn)
-				if err != nil && !errors.Is(err, io.EOF) {
-					e.logger.Error("%v", err)
-					conn.Close()
-					continue
-				}
-				//read message if any
-				var message client.Message
-				err = json.Unmarshal(data, &message)
-
-				if err != nil {
-					e.logger.Error("%v", err)
-					conn.Close()
-					continue
-				}
-				//handle message
-				go e.HandleMessage(&message)
-				//repeat
-				conn.Close()
-			}
-		}
-
+		e.logger.Info("starting tcp-bus listener")
+		e.listenToBus()
 	}()
 
 }
 
+/*
+listenToBus function listens for new messages on the pull port of the tcp-bus service
+*/
+func (e *Executor) listenToBus() {
+	for {
+		select {
+		case <-e.ctx.Done():
+			e.logger.Info("stopping tcp-bus listener")
+			return
+		default:
+			time.Sleep(100 * time.Millisecond)
+			conn, err := net.Dial("tcp", client.PULL_PORT)
+			if err != nil {
+				e.logger.Error("%v", err)
+				continue
+			}
+			data, err := io.ReadAll(conn)
+			if err != nil && !errors.Is(err, io.EOF) {
+				e.logger.Error("%v", err)
+				conn.Close()
+				continue
+			}
+			//read message if any
+			var message client.Message
+			err = json.Unmarshal(data, &message)
+
+			if err != nil {
+				e.logger.Error("%v", err)
+				conn.Close()
+				continue
+			}
+			//handle message
+			go e.HandleMessage(&message)
+			//repeat
+			conn.Close()
+		}
+	}
+}
+
+/*
+handleMessage handles messages sent on the tcp-bus and
+translates them into disable / stop / delete signals for tasks
+*/
 func (e *Executor) HandleMessage(msg *client.Message) {
 	e.logger.Info("handling message...")
 	cmd, ok := (*msg)["cmd"]
@@ -224,12 +269,12 @@ func (e *Executor) getStopChan(taskId string) (chan stopChanData, error) {
 	return stopChan, nil
 }
 
+/*
+LoadTasks retrieves runnable tasks from the database,
+sets status to queued and
+pushes each task to  a tasksQueue channel
+*/
 func (e *Executor) LoadTasks() error {
-	/*
-		retrieve task from db where status == inactive
-		set status to queued
-		push to tasksQueue
-	*/
 	e.repo.ResetIsQueued()
 	allTasks, err := e.repo.GetRunnableTasks()
 	if err != nil {
@@ -248,6 +293,10 @@ func (e *Executor) LoadTasks() error {
 	return nil
 }
 
+/*
+RunTasks reads tasks from the taskQueue
+and runs each task in a seperate goroutine depending.
+*/
 func (e *Executor) RunTasks() {
 	e.logger.Info("running start function")
 	for {
