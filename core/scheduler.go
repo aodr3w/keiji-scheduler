@@ -295,7 +295,7 @@ func (e *Executor) LoadTasks() error {
 
 /*
 RunTasks reads tasks from the taskQueue
-and runs each task in a seperate goroutine depending.
+and runs each task in a seperate goroutine.
 */
 func (e *Executor) RunTasks() {
 	e.logger.Info("running start function")
