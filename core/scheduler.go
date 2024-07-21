@@ -328,10 +328,13 @@ func (e *Executor) RunTasks() {
 
 }
 
+/*
+deleteTaskExecutable deletes the task binary located at the path
+passed to the function.
+*/
 func (e *Executor) deleteTaskExecutable(executable string) error {
 	dir := filepath.Dir(executable)
 	runFile := filepath.Join(dir, fmt.Sprintf("%v_run.bin", strings.ReplaceAll(filepath.Base(executable), ".bin", "")))
-	fmt.Printf("deleting %v, %v\n", executable, runFile)
 	for _, f := range []string{executable, runFile} {
 		err := os.Remove(f)
 		if err != nil {
@@ -340,6 +343,10 @@ func (e *Executor) deleteTaskExecutable(executable string) error {
 	}
 	return nil
 }
+
+/*
+deleteTaskLog deletes the logFile for task with `taskId`
+*/
 func (e *Executor) deleteTaskLog(taskId string) error {
 	task_obj, err := e.repo.GetTaskByID(taskId)
 	if err != nil {
@@ -359,6 +366,9 @@ func (e *Executor) deleteTaskLog(taskId string) error {
 	return os.Remove(logsPath)
 }
 
+/*
+closeTaskChans closes & cleans up all references to the stopChan for task with `taskID“
+*/
 func (e *Executor) closeTaskChans(taskId string) {
 	if stopChan, ok := e.stopChans[taskId]; !ok {
 		e.logger.Error("failed to close stop channel for task %v not found", taskId)
@@ -368,6 +378,10 @@ func (e *Executor) closeTaskChans(taskId string) {
 	}
 }
 
+/*
+RunHMSTask handles execution of tasks that are scheduled to run
+on an interval of hours (H), minutes (M) or seconds (S)
+*/
 func (e *Executor) RunHMSTask(task *db.TaskModel) error {
 	log, err := logger.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
 	if err != nil {
@@ -379,7 +393,7 @@ func (e *Executor) RunHMSTask(task *db.TaskModel) error {
 		err := fmt.Errorf("invalid interval value for task %v", task.TaskId)
 		_, setErr := e.repo.SetIsError(task.Slug, true, err.Error())
 		if setErr != nil {
-			return setErr
+			log.Error("SetIsError error: %v", setErr)
 		}
 		return err
 	}
@@ -388,7 +402,7 @@ func (e *Executor) RunHMSTask(task *db.TaskModel) error {
 		err := fmt.Errorf("invalid unit value for task %v", task.TaskId)
 		_, setErr := e.repo.SetIsError(task.Slug, true, err.Error())
 		if setErr != nil {
-			return setErr
+			log.Error("SetIsError error: %v", setErr)
 		}
 		return err
 	}
