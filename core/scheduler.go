@@ -309,13 +309,20 @@ func (e *Executor) RunTasks() {
 			e.stopChans[task.TaskId] = stopChan
 			e.wg.Add(1)
 			go func(task *db.TaskModel, stopChan chan stopChanData) {
+				var err error
 				defer e.wg.Done()
 				//move for select here
 				switch task.Type {
 				case db.TaskType(db.HMSTask):
-					e.RunHMSTask(task)
+					err = e.RunHMSTask(task)
+					if err != nil {
+						e.logger.Error("[runHMS Error]: %v", err)
+					}
 				case db.DayTime:
-					e.RunDayTimeTask(task)
+					err = e.RunDayTimeTask(task)
+					if err != nil {
+						e.logger.Error("[runDayTimeTask Error]: %v", err)
+					}
 				default:
 					e.logger.Error("invalid task type")
 					return
@@ -397,7 +404,7 @@ func (e *Executor) RunHMSTask(task *db.TaskModel) error {
 		}
 		return err
 	}
-	unit, err := e.getUnits(scheduleInfo)
+	unit, err := e.getIntervalUnit(scheduleInfo)
 	if err != nil {
 		err := fmt.Errorf("invalid unit value for task %v", task.TaskId)
 		_, setErr := e.repo.SetIsError(task.Slug, true, err.Error())
@@ -791,7 +798,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 func (e *Executor) GetNextExecutonTime(from time.Time, target time.Time, daysUntilTarget int, loc *time.Location) time.Time {
 	return time.Date(from.Year(), from.Month(), from.Day(), target.Hour(), target.Minute(), 0, 0, loc).AddDate(0, 0, daysUntilTarget)
 }
-func (e *Executor) getUnits(scheduleInfo map[string]interface{}) (string, error) {
+func (e *Executor) getIntervalUnit(scheduleInfo map[string]interface{}) (string, error) {
 	value, ok := scheduleInfo["units"].(string)
 	if !ok {
 		return "", fmt.Errorf("failed to get interval from %v", scheduleInfo)
