@@ -297,6 +297,17 @@ func (e *Executor) LoadTasks() error {
 RunTasks reads tasks from the taskQueue
 and runs each task in a seperate goroutine.
 */
+func (e *Executor) logAndSetError(task *db.TaskModel, log *logger.Logger, err error) {
+	if err != nil {
+		err := fmt.Errorf("error: %v for task %v", err, task.TaskId)
+		log.Error("an error occured: %v", err)
+		_, setErr := e.repo.SetIsError(task.Slug, true, err.Error())
+		if setErr != nil {
+			log.Error("SetIsError error: %v", setErr)
+		}
+	}
+}
+
 func (e *Executor) RunTasks() {
 	e.logger.Info("running start function")
 	for {
@@ -309,20 +320,13 @@ func (e *Executor) RunTasks() {
 			e.stopChans[task.TaskId] = stopChan
 			e.wg.Add(1)
 			go func(task *db.TaskModel, stopChan chan stopChanData) {
-				var err error
 				defer e.wg.Done()
 				//move for select here
 				switch task.Type {
 				case db.TaskType(db.HMSTask):
-					err = e.RunHMSTask(task)
-					if err != nil {
-						e.logger.Error("[runHMS Error]: %v", err)
-					}
+					e.RunHMSTask(task)
 				case db.DayTime:
-					err = e.RunDayTimeTask(task)
-					if err != nil {
-						e.logger.Error("[runDayTimeTask Error]: %v", err)
-					}
+					e.RunDayTimeTask(task)
 				default:
 					e.logger.Error("invalid task type")
 					return
@@ -389,29 +393,22 @@ func (e *Executor) closeTaskChans(taskId string) {
 RunHMSTask handles execution of tasks that are scheduled to run
 on an interval of hours (H), minutes (M) or seconds (S)
 */
-func (e *Executor) RunHMSTask(task *db.TaskModel) error {
+func (e *Executor) RunHMSTask(task *db.TaskModel) {
 	log, err := logger.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
 	if err != nil {
-		return err
+		e.logAndSetError(task, log, err)
+		return
 	}
 	scheduleInfo := task.ScheduleInfo
 	interval, err := e.getInterval(task)
 	if err != nil {
-		err := fmt.Errorf("invalid interval value for task %v", task.TaskId)
-		_, setErr := e.repo.SetIsError(task.Slug, true, err.Error())
-		if setErr != nil {
-			log.Error("SetIsError error: %v", setErr)
-		}
-		return err
+		e.logAndSetError(task, log, err)
+		return
 	}
 	unit, err := e.getIntervalUnit(scheduleInfo)
 	if err != nil {
-		err := fmt.Errorf("invalid unit value for task %v", task.TaskId)
-		_, setErr := e.repo.SetIsError(task.Slug, true, err.Error())
-		if setErr != nil {
-			log.Error("SetIsError error: %v", setErr)
-		}
-		return err
+		e.logAndSetError(task, log, err)
+		return
 	}
 	var duration time.Duration
 	switch unit {
@@ -423,11 +420,8 @@ func (e *Executor) RunHMSTask(task *db.TaskModel) error {
 		duration = time.Duration(interval) * time.Hour
 	default:
 		err := fmt.Errorf("invalid unit %v for HMS task must be seconds, minutes or hours", unit)
-		_, setErr := e.repo.SetIsError(task.Slug, true, err.Error())
-		if setErr != nil {
-			return setErr
-		}
-		return err
+		e.logAndSetError(task, log, err)
+		return
 	}
 
 	e.executeTask(
@@ -435,8 +429,6 @@ func (e *Executor) RunHMSTask(task *db.TaskModel) error {
 		log,
 		duration,
 	)
-
-	return nil
 }
 
 func (e *Executor) tz() string {
@@ -459,7 +451,7 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 	defer ticker.Stop()
 	stopChan, stopChanFound := e.stopChans[task.TaskId]
 	if !stopChanFound {
-		e.logger.Error("stop channel for task %v not found", task.Slug)
+		e.logAndSetError(task, logger, fmt.Errorf("stop channel for task %v not found", task.Slug))
 		return
 	}
 
@@ -471,32 +463,24 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 		if err == nil {
 			err = fmt.Errorf("executable directory does not exist")
 		}
-		logger.Error("%v", err)
-		_, err = e.repo.SetIsError(task.Slug, true, err.Error())
-		if err != nil {
-			logger.Error(err.Error())
-		}
+		e.logAndSetError(task, logger, err)
 		return
 	}
 	//copy here
 	executable, err = e.copyBinary(executable)
 	if err != nil {
-		e.logger.Error("%v", err)
+		e.logAndSetError(task, logger, err)
 		return
 	}
 	if !ok {
-		logger.Error("%v", err)
-		_, err := e.repo.SetIsError(task.Slug, true, fmt.Sprintf("Executable not found at %v", executable))
-		if err != nil {
-			logger.Error(err.Error())
-		}
+		e.logAndSetError(task, logger, fmt.Errorf("executable not found at %v", executable))
 		return
 	}
 
 	task, err = e.repo.SetIsRunning(task.Slug, true)
 
 	if err != nil {
-		e.logger.Error("%v", err)
+		e.logAndSetError(task, logger, err)
 		e.closeTaskChans(task.TaskId)
 		return
 	}
