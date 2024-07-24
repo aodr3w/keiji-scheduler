@@ -447,6 +447,21 @@ func (e *Executor) tz() string {
 }
 
 func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, duration time.Duration) {
+	if duration <= 0 {
+		e.logAndSetError(task, logger, fmt.Errorf("duration value in executeTask should be atleast 1"))
+		return
+	}
+
+	if logger == nil {
+		e.logAndSetError(task, logger, fmt.Errorf("logger in executeTask should not be nil"))
+		return
+	}
+
+	if task == nil {
+		e.logAndSetError(task, logger, fmt.Errorf("task in executeTask should not be nil"))
+		return
+	}
+
 	ticker := time.NewTicker(duration)
 	defer ticker.Stop()
 	stopChan, stopChanFound := e.stopChans[task.TaskId]
@@ -593,8 +608,15 @@ func (e *Executor) RunDayTimeTask(task *db.TaskModel) error {
 	return nil
 }
 
+/*
+copyBinary makes a copy of the executable located at the provided path,
+and returns the runPath along with an error value
+*/
 func (e *Executor) copyBinary(path string) (string, error) {
 	execDir := filepath.Dir(path)
+	if string(path[len(path)-4:]) != ".bin" {
+		return "", fmt.Errorf("executable path %v may be invalid", path)
+	}
 	fileName := strings.ReplaceAll(filepath.Base(path), ".bin", "_run.bin")
 	runPath := fmt.Sprintf("%v/%v", execDir, fileName)
 	err := utils.CopyFile(path, runPath)
