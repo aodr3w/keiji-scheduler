@@ -325,7 +325,7 @@ func (e *Executor) RunTasks() {
 				switch task.Type {
 				case db.TaskType(db.HMSTask):
 					e.RunHMSTask(task)
-				case db.DayTime:
+				case db.DayTimeTask:
 					e.RunDayTimeTask(task)
 				default:
 					e.logger.Error("invalid task type")
@@ -560,7 +560,7 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 				return
 			}
 			//if the task is a DayTime task, re-compute wait time and recreate ticker
-			if task.Type == db.DayTime {
+			if task.Type == db.DayTimeTask {
 				//determine next execution time based on scheduleInfo
 				duration, err := e.getInterval(task)
 				if err != nil {
@@ -652,6 +652,9 @@ func (e *Executor) runBinary(logger *logger.Logger, path string, args ...string)
 	return nil
 }
 
+/*
+getInterval function determines a duration relative to the current time based on a task's scheduling info.
+*/
 func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 	now := time.Now()
 	if task.NextExecutionTime != nil && now.Before(*task.NextExecutionTime) {
@@ -665,7 +668,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 	if scheduleInfo == nil {
 		return 0, fmt.Errorf("scheduleInfo not provided for task %v", task.Slug)
 	}
-	if task.Type == db.TaskType(db.HMSTask) {
+	if task.Type == db.HMSTask {
 		e.logger.Info("getting interval for HMS task %v", task.Slug)
 		value, ok := scheduleInfo["interval"].(float64)
 		if !ok {
@@ -688,7 +691,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 		}
 		e.logger.Info("Interval Value %v", value)
 		return int64(value), nil
-	} else if task.Type == db.HMSTask {
+	} else if task.Type == db.DayTimeTask {
 
 		e.logger.Info("getting interval for DayTime task %v", task.Slug)
 		day, ok := scheduleInfo["day"]
