@@ -436,11 +436,14 @@ func (e *Executor) tz() string {
 	err := godotenv.Load(paths.WORKSPACE_SETTINGS)
 	if err != nil {
 		log.Printf("failed to load env due to error %v\n", err)
+
 	} else {
 		tz := os.Getenv("tz")
 		if len(tz) > 0 {
 			tz = timezone
 			log.Printf("timezone set to:  %v\n", tz)
+		} else {
+			log.Printf("timezone var not found using default: %s", timezone)
 		}
 	}
 	return timezone
