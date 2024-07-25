@@ -564,7 +564,7 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 				//determine next execution time based on scheduleInfo
 				duration, err := e.getInterval(task)
 				if err != nil {
-					logger.Error("%v", err)
+					e.logAndSetError(task, logger, err)
 					e.closeTaskChans(task.TaskId)
 					return
 				}
@@ -669,7 +669,6 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 		return -1, fmt.Errorf("scheduleInfo not provided for task %v", task.Slug)
 	}
 	if task.Type == db.HMSTask {
-		e.logger.Info("getting interval for HMS task %v", task.Slug)
 		value, ok := scheduleInfo["interval"].(float64)
 		if !ok {
 			// If the value is not an int64, try converting it from a string
@@ -685,67 +684,50 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 				return -1, fmt.Errorf("invalid interval value , must be >= 1")
 			}
 		}
-		e.logger.Info("Interval Value %v", value)
+		e.logger.Info("task %v interval: %v", task.Name, value)
 		return int64(value), nil
 	} else if task.Type == db.DayTimeTask {
-
-		e.logger.Info("getting interval for DayTime task %v", task.Slug)
 		day, ok := scheduleInfo["day"]
-
 		if !ok {
-			err := fmt.Errorf("`Day` not found in DayTimeTask schedule for task: %v", task.Slug)
-			e.logger.Error("%v", err)
+			err := fmt.Errorf("`Day` not found in scheduleInfo for task: %v", task.Slug)
 			return -1, err
 		}
 
 		dayStr, ok := day.(string)
 
 		if !ok {
-			err := fmt.Errorf("`Day` value %v type is incorrect expected string for task: %v", dayStr, task.Slug)
-			e.logger.Error("%v", err)
+			//"`time` value %v type is incorrect, expected string but got %T for task: %v"
+			err := fmt.Errorf("`Day` value %v type is incorrect, expected string but got %T for task: %v", dayStr, dayStr, task.Slug)
 			return -1, err
 		}
-
-		e.logger.Info("[task-%v] dayStr: %v", task.Slug, dayStr)
 
 		dayNum, err := e.DayNum(dayStr)
 
 		if err != nil {
-			err := fmt.Errorf("error getting DayNum: %v for task %v", err, task.Slug)
-			e.logger.Error("%v", err)
+			err := fmt.Errorf("error getting DayNum: %v  with dayStr %v for task %v", err, dayStr, task.Slug)
 			return -1, err
 		}
-
-		e.logger.Info("[task-%v] dayNum: %v", task.Slug, dayNum)
 
 		t, ok := scheduleInfo["time"]
 
 		if !ok {
-			err := fmt.Errorf("time value not found for task %v", task.Slug)
-			e.logger.Error("%v", err)
+			err := fmt.Errorf("schedule info for task %v is missing a `time` value", task.Slug)
 			return -1, err
 		}
 
 		tStr, ok := t.(string)
 
 		if !ok {
-			err := fmt.Errorf("`time` value %v type is incorrect expected string for task: %v", t, task.Slug)
-			e.logger.Error("%v", err)
+			err := fmt.Errorf("`time` value %v type is incorrect, expected string but got %T for task: %v", t, t, task.Slug)
 			return -1, err
 		}
-
-		e.logger.Info("[task-%v] timeStr: %v", task.Slug, tStr)
 
 		pt, err := time.Parse("15:04", tStr)
 
 		if err != nil {
 			err := fmt.Errorf("failed to parse timeStr: %v due to error %v for task %v", tStr, err, task.Slug)
-			e.logger.Error("%v", err)
 			return -1, err
 		}
-
-		e.logger.Info("[task-%v] time: %v", task.Slug, pt)
-
 		//load timezone info
 		tz := e.tz()
 
@@ -757,7 +739,6 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 		loc, err := time.LoadLocation(tz)
 		if err != nil {
 			err := fmt.Errorf("failed to load location: %v", err)
-			e.logger.Error("%v", err)
 			return -1, err
 		}
 
