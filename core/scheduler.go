@@ -652,11 +652,31 @@ func (e *Executor) runBinary(logger *logger.Logger, path string, args ...string)
 	return nil
 }
 
+func (e *Executor) now() (time.Time, error) {
+	tz := e.tz()
+	var now time.Time
+	if len(tz) == 0 {
+		err := fmt.Errorf("TIME_ZONE NOT SET")
+		return now, err
+	}
+
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		err := fmt.Errorf("failed to load location: %v", err)
+		return now, err
+	}
+	now = time.Now().In(loc)
+	return now, nil
+}
+
 /*
 getInterval function determines a duration relative to the current time based on a task's scheduling info.
 */
 func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
-	now := time.Now()
+	now, err := e.now()
+	if err != nil {
+		return -1, err
+	}
 	if task.NextExecutionTime != nil && now.Before(*task.NextExecutionTime) {
 		duration := int64(task.NextExecutionTime.Sub(now))
 		if duration < 1 {
@@ -742,7 +762,6 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 			return -1, err
 		}
 
-		now := time.Now().In(loc)
 		currentDay := int(now.Weekday())
 		targetDay := int(dayNum)
 
