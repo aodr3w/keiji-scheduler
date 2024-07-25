@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -431,22 +430,17 @@ func (e *Executor) RunHMSTask(task *db.TaskModel) {
 	)
 }
 
-func (e *Executor) tz() string {
-	timezone := "Africa/Nairobi"
+func (e *Executor) tz() (string, error) {
 	err := godotenv.Load(paths.WORKSPACE_SETTINGS)
 	if err != nil {
-		log.Printf("failed to load env due to error %v\n", err)
-
+		return "", err
 	} else {
-		tz := os.Getenv("tz")
+		tz := os.Getenv("TIME_ZONE")
 		if len(tz) > 0 {
-			tz = timezone
-			log.Printf("timezone set to:  %v\n", tz)
-		} else {
-			log.Printf("timezone var not found using default: %s", timezone)
+			return tz, nil
 		}
+		return "", fmt.Errorf("timezone value not found")
 	}
-	return timezone
 }
 
 /*
@@ -655,28 +649,45 @@ func (e *Executor) runBinary(logger *logger.Logger, path string, args ...string)
 	return nil
 }
 
-func (e *Executor) now() (time.Time, error) {
-	tz := e.tz()
+/*
+Now function returns a timezone aware value
+of the current time or an error
+*/
+func (e *Executor) Now() (time.Time, error) {
 	var now time.Time
-	if len(tz) == 0 {
-		err := fmt.Errorf("TIME_ZONE NOT SET")
+	tz, err := e.tz()
+	if err != nil {
 		return now, err
 	}
-
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
-		err := fmt.Errorf("failed to load location: %v", err)
 		return now, err
 	}
 	now = time.Now().In(loc)
 	return now, nil
 }
 
+func (e *Executor) getLoc() (*time.Location, error) {
+	tz, err := e.tz()
+	if err != nil {
+		return nil, err
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return nil, err
+	}
+	return loc, err
+}
+
 /*
 getInterval function determines a duration relative to the current time based on a task's scheduling info.
 */
 func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
-	now, err := e.now()
+	loc, err := e.getLoc()
+	if err != nil {
+		return -1, err
+	}
+	now, err := e.Now()
 	if err != nil {
 		return -1, err
 	}
@@ -745,23 +756,10 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 			return -1, err
 		}
 
-		pt, err := time.Parse("15:04", tStr)
+		taskTime, err := time.Parse("15:04", tStr)
 
 		if err != nil {
 			err := fmt.Errorf("failed to parse timeStr: %v due to error %v for task %v", tStr, err, task.Slug)
-			return -1, err
-		}
-		//load timezone info
-		tz := e.tz()
-
-		if len(tz) == 0 {
-			err := fmt.Errorf("TIME_ZONE NOT SET")
-			return -1, err
-		}
-
-		loc, err := time.LoadLocation(tz)
-		if err != nil {
-			err := fmt.Errorf("failed to load location: %v", err)
 			return -1, err
 		}
 
@@ -771,11 +769,9 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 		daysUntilTarget := ((targetDay - currentDay) + 7) % 7
 
 		if daysUntilTarget == 0 {
-			e.logger.Info("days until target == 0, now: %v, targetTime %v now < targetTime: %v", now, pt, now.Before(pt))
-			nextExecutionTime := e.GetNextExecutonTime(now, pt, daysUntilTarget, loc)
-			e.logger.Info("nextExecutionTime %v", nextExecutionTime)
+			nextExecutionTime := e.GetNextExecutonTime(now, taskTime, daysUntilTarget, loc)
+			e.logger.Info("task %v nextExecutionTime %v", task.Slug, nextExecutionTime)
 			if now.Before(nextExecutionTime) {
-				e.logger.Info("returning next Execution time")
 				err = e.repo.UpdateExecutionTime(task, &nextExecutionTime, &now)
 				if err != nil {
 					return -1, err
@@ -787,8 +783,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 
 		e.logger.Info("[task-%v] days until next run: %v", task.Slug, daysUntilTarget)
 
-		// nextExecutionTime := time.Date(now.Year(), now.Month(), now.Day(), pt.Hour(), pt.Minute(), 0, 0, loc).AddDate(0, 0, daysUntilTarget)
-		nextExecutionTime := e.GetNextExecutonTime(now, pt, daysUntilTarget, loc)
+		nextExecutionTime := e.GetNextExecutonTime(now, taskTime, daysUntilTarget, loc)
 		e.logger.Info("[task-%v] NextExecutionTime: %v", task.Slug, nextExecutionTime)
 		duration := time.Until(nextExecutionTime)
 		e.logger.Info("updating NextExecutionTime...")
@@ -804,9 +799,17 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 
 }
 
+/*
+GetNextExecutionTime function returns a timezone aware date that is = now + daysUntilTarget
+*/
 func (e *Executor) GetNextExecutonTime(from time.Time, target time.Time, daysUntilTarget int, loc *time.Location) time.Time {
 	return time.Date(from.Year(), from.Month(), from.Day(), target.Hour(), target.Minute(), 0, 0, loc).AddDate(0, 0, daysUntilTarget)
 }
+
+/*
+getIntervalUnit returns the a string representation of a task's interval unit e.g
+seconds, minutes or hours
+*/
 func (e *Executor) getIntervalUnit(scheduleInfo map[string]interface{}) (string, error) {
 	value, ok := scheduleInfo["units"].(string)
 	if !ok {
