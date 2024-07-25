@@ -446,6 +446,9 @@ func (e *Executor) tz() string {
 	return timezone
 }
 
+/*
+executeTask function runs the task on an interval derived from the tasks scheduling information
+*/
 func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, duration time.Duration) {
 	if duration <= 0 {
 		e.logAndSetError(task, logger, fmt.Errorf("duration value in executeTask should be atleast 1"))
@@ -574,6 +577,10 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 
 }
 
+/*
+RunDayTimeTask function handles execution of tasks that run on a
+specific day , at a specific time
+*/
 func (e *Executor) RunDayTimeTask(task *db.TaskModel) error {
 	//get logger
 	log, err := logger.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
