@@ -512,7 +512,6 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 				if err != nil {
 					e.logger.Error("setIsDisabled Error: %v", err)
 				} else {
-					e.logger.Info("task %v disabled successfully", task.Slug)
 					e.closeTaskChans(task.TaskId)
 					return
 				}
@@ -523,7 +522,6 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 				if err != nil {
 					e.logger.Error("%v", err)
 				} else {
-					e.logger.Info("task stopped successfully")
 					e.closeTaskChans(task.TaskId)
 					return
 				}
@@ -531,15 +529,11 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 				err = e.deleteTaskLog(task.TaskId)
 				if err != nil {
 					e.logger.Error("delete logsPath error %v ", err)
-				} else {
-					e.logger.Info("task %v logs file deleted ", task.TaskId)
 				}
 				err = e.deleteTaskExecutable(task.Executable)
 				//delete binaries at executable path
 				if err != nil {
 					e.logger.Error("delete executables error: %v", err)
-				} else {
-					e.logger.Info("task %v executables deleted", task.TaskId)
 				}
 				//delete record from db and return
 				err := e.repo.DeleteTask(task)
