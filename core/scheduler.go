@@ -666,19 +666,17 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 	}
 	scheduleInfo := task.ScheduleInfo
 	if scheduleInfo == nil {
-		return 0, fmt.Errorf("scheduleInfo not provided for task %v", task.Slug)
+		return -1, fmt.Errorf("scheduleInfo not provided for task %v", task.Slug)
 	}
 	if task.Type == db.HMSTask {
 		e.logger.Info("getting interval for HMS task %v", task.Slug)
 		value, ok := scheduleInfo["interval"].(float64)
 		if !ok {
-			e.logger.Info("not ok %v %v", value, ok)
 			// If the value is not an int64, try converting it from a string
 			strValue, strOk := scheduleInfo["interval"].(string)
 			if !strOk {
-				return 0, fmt.Errorf("failed to get interval from %v", scheduleInfo)
+				return -1, fmt.Errorf("failed to get interval from %v", scheduleInfo)
 			}
-			e.logger.Info("string Interval Value %v", strValue)
 			intValue, err := strconv.Atoi(strValue)
 			if err != nil {
 				return -1, err
@@ -686,8 +684,6 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 			if intValue < 1 {
 				return -1, fmt.Errorf("invalid interval value , must be >= 1")
 			}
-			e.logger.Info("extracted Interval Value %v", intValue)
-			return int64(intValue), nil
 		}
 		e.logger.Info("Interval Value %v", value)
 		return int64(value), nil
