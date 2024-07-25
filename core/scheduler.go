@@ -447,7 +447,7 @@ func (e *Executor) tz() string {
 }
 
 /*
-executeTask function runs the task on an interval derived from the tasks scheduling information
+The executeTask function runs the task at intervals based on its scheduling information.
 */
 func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, duration time.Duration) {
 	if duration <= 0 {
