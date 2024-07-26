@@ -151,7 +151,7 @@ func (e *Executor) Start() {
 				close(e.tasksQueue)
 				return
 			default:
-				err := e.LoadTasks()
+				err := e.loadTasks()
 				if err != nil {
 					break
 				}
@@ -163,7 +163,7 @@ func (e *Executor) Start() {
 	//run tasks
 	e.wg.Add(1)
 	go func() {
-		e.RunTasks()
+		e.runTasks()
 		defer e.wg.Done()
 	}()
 
@@ -207,7 +207,7 @@ func (e *Executor) listenToBus() {
 				continue
 			}
 			//handle message
-			go e.HandleMessage(&message)
+			go e.handleMessage(&message)
 			//repeat
 			conn.Close()
 		}
@@ -218,7 +218,7 @@ func (e *Executor) listenToBus() {
 handleMessage handles messages sent on the tcp-bus and
 translates them into disable / stop / delete signals for tasks
 */
-func (e *Executor) HandleMessage(msg *client.Message) {
+func (e *Executor) handleMessage(msg *client.Message) {
 	e.logger.Info("handling message...")
 	cmd, ok := (*msg)["cmd"]
 	if !ok {
@@ -273,7 +273,7 @@ LoadTasks retrieves runnable tasks from the database,
 sets status to queued and
 pushes each task to  a tasksQueue channel
 */
-func (e *Executor) LoadTasks() error {
+func (e *Executor) loadTasks() error {
 	e.repo.ResetIsQueued()
 	allTasks, err := e.repo.GetRunnableTasks()
 	if err != nil {
@@ -307,7 +307,7 @@ func (e *Executor) logAndSetError(task *db.TaskModel, log *logger.Logger, err er
 	}
 }
 
-func (e *Executor) RunTasks() {
+func (e *Executor) runTasks() {
 	e.logger.Info("running start function")
 	for {
 		select {
@@ -323,9 +323,9 @@ func (e *Executor) RunTasks() {
 				//move for select here
 				switch task.Type {
 				case db.TaskType(db.HMSTask):
-					e.RunHMSTask(task)
+					e.runHMSTask(task)
 				case db.DayTimeTask:
-					e.RunDayTimeTask(task)
+					e.runDayTimeTask(task)
 				default:
 					e.logger.Error("invalid task type")
 					return
@@ -392,7 +392,7 @@ func (e *Executor) closeTaskChans(taskId string) {
 RunHMSTask handles execution of tasks that are scheduled to run
 on an interval of hours (H), minutes (M) or seconds (S)
 */
-func (e *Executor) RunHMSTask(task *db.TaskModel) {
+func (e *Executor) runHMSTask(task *db.TaskModel) {
 	log, err := logger.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
 	if err != nil {
 		e.logAndSetError(task, log, err)
@@ -578,7 +578,7 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 RunDayTimeTask function handles execution of tasks that run on a
 specific day , at a specific time
 */
-func (e *Executor) RunDayTimeTask(task *db.TaskModel) error {
+func (e *Executor) runDayTimeTask(task *db.TaskModel) error {
 	//get logger
 	log, err := logger.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
 	if err != nil {
@@ -653,7 +653,7 @@ func (e *Executor) runBinary(logger *logger.Logger, path string, args ...string)
 Now function returns a timezone aware value
 of the current time or an error
 */
-func (e *Executor) Now() (time.Time, error) {
+func (e *Executor) now() (time.Time, error) {
 	var now time.Time
 	tz, err := e.tz()
 	if err != nil {
@@ -687,7 +687,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 	if err != nil {
 		return -1, err
 	}
-	now, err := e.Now()
+	now, err := e.now()
 	if err != nil {
 		return -1, err
 	}
@@ -769,7 +769,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 		daysUntilTarget := ((targetDay - currentDay) + 7) % 7
 
 		if daysUntilTarget == 0 {
-			nextExecutionTime := e.GetNextExecutonTime(now, taskTime, daysUntilTarget, loc)
+			nextExecutionTime := e.getNextExecutonTime(now, taskTime, daysUntilTarget, loc)
 			e.logger.Info("task %v nextExecutionTime %v", task.Slug, nextExecutionTime)
 			if now.Before(nextExecutionTime) {
 				err = e.repo.UpdateExecutionTime(task, &nextExecutionTime, &now)
@@ -783,7 +783,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 
 		e.logger.Info("[task-%v] days until next run: %v", task.Slug, daysUntilTarget)
 
-		nextExecutionTime := e.GetNextExecutonTime(now, taskTime, daysUntilTarget, loc)
+		nextExecutionTime := e.getNextExecutonTime(now, taskTime, daysUntilTarget, loc)
 		e.logger.Info("[task-%v] NextExecutionTime: %v", task.Slug, nextExecutionTime)
 		duration := time.Until(nextExecutionTime)
 		e.logger.Info("updating NextExecutionTime...")
@@ -802,7 +802,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 /*
 GetNextExecutionTime function returns a timezone aware date that is = now + daysUntilTarget
 */
-func (e *Executor) GetNextExecutonTime(from time.Time, target time.Time, daysUntilTarget int, loc *time.Location) time.Time {
+func (e *Executor) getNextExecutonTime(from time.Time, target time.Time, daysUntilTarget int, loc *time.Location) time.Time {
 	return time.Date(from.Year(), from.Month(), from.Day(), target.Hour(), target.Minute(), 0, 0, loc).AddDate(0, 0, daysUntilTarget)
 }
 
