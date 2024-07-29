@@ -363,7 +363,7 @@ func (e *Executor) deleteTaskLog(taskId string) error {
 		return err
 	}
 	logsPath := task_obj.LogPath
-	exists, err := utils.DirectoryExists(logsPath)
+	exists, err := utils.PathExists(logsPath)
 	if err != nil {
 		e.logger.Error("%v", err)
 		return err
@@ -472,7 +472,7 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 
 	executable := task.Executable
 
-	ok, err := utils.DirectoryExists(executable)
+	ok, err := utils.PathExists(executable)
 
 	if err != nil || !ok {
 		if err == nil {
