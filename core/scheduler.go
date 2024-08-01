@@ -513,6 +513,7 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 					e.logger.Error("setIsDisabled Error: %v", err)
 				} else {
 					e.closeTaskChans(task.TaskId)
+					e.logger.Info("task %v disabled successfully", task.Slug)
 					return
 				}
 			} else if stopSig.stop {
