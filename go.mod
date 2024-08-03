@@ -4,7 +4,7 @@ go 1.22.5
 
 require (
 	github.com/aodr3w/keiji-bus-client v0.0.0-20240731150430-f0f54f987d6d
-	github.com/aodr3w/keiji-core v0.0.0-20240802163032-b43a22e69ace
+	github.com/aodr3w/keiji-core v0.0.0-20240803125043-fc2465b659d4
 	github.com/aodr3w/logger v0.0.0-20240718094903-5071dde6db05
 	github.com/joho/godotenv v1.5.1
 )
