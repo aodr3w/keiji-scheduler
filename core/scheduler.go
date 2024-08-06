@@ -503,6 +503,7 @@ func (e *Executor) executeTask(task *db.TaskModel, log *logger.Logger, duration 
 		select {
 		case <-e.ctx.Done():
 			e.log.Info("[ system shutdown ] terminating task: %v", task.TaskId)
+			log.Info("shutdown signal received.")
 			e.closeTaskChans(task.TaskId)
 			return
 
