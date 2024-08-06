@@ -566,7 +566,7 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 					e.closeTaskChans(task.TaskId)
 					return
 				}
-				e.logger.Info("task %v next execution in %v seconds", task.TaskId, duration)
+				e.logger.Info("task %v next execution in %v seconds", task.TaskId, duration/int64(time.Second))
 				ticker.Stop()
 				ticker = time.NewTicker(time.Duration(duration))
 			}
