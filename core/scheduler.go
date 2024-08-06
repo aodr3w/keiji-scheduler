@@ -40,7 +40,7 @@ functions that facilitate concurrent execution of tasks
 */
 type Executor struct {
 	repo       *db.Repo
-	logger     *logger.Logger
+	log        *logger.Logger
 	stopChans  map[string]chan stopChanData
 	tasksQueue chan *db.TaskModel
 	ctx        context.Context
@@ -69,14 +69,14 @@ func NewExecutor() (*Executor, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger, err := logger.NewFileLogger(paths.SCHEDULER_LOGS)
+	log, err := logger.NewFileLogger(paths.SCHEDULER_LOGS)
 	if err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Executor{
 		repo:       repo,
-		logger:     logger,
+		log:        log,
 		stopChans:  make(map[string]chan stopChanData),
 		tasksQueue: make(chan *db.TaskModel, 100),
 		ctx:        ctx,
@@ -91,7 +91,7 @@ by propagating a stop singal via context (to cancel running tasks)
 and closing the executor's db session via e.repo.Close()
 */
 func (e *Executor) Stop() {
-	e.logger.Warn("stopping executor...")
+	e.log.Warn("stopping executor...")
 	e.markAllTasksAsNotRunning()
 	e.cancel()
 	e.wg.Wait()
@@ -119,16 +119,16 @@ during the shutdown of an executor
 func (e *Executor) markAllTasksAsNotRunning() {
 	tasks, err := e.repo.GetRunningTasks()
 	if err != nil {
-		e.logger.Error("failed to get running tasks: %v", err)
+		e.log.Error("failed to get running tasks: %v", err)
 		return
 	}
 
-	e.logger.Info("updating running tasks...")
+	e.log.Info("updating running tasks...")
 	for _, task := range tasks {
 		if _, err := e.repo.SetIsRunning(task.Slug, false); err != nil {
-			e.logger.Error("failed to mark task %v as not running: %v", task.Slug, err)
+			e.log.Error("failed to mark task %v as not running: %v", task.Slug, err)
 		} else {
-			e.logger.Info("task updated before shutdown")
+			e.log.Info("task updated before shutdown")
 		}
 	}
 }
@@ -146,8 +146,8 @@ func (e *Executor) Start() {
 		for {
 			select {
 			case <-e.ctx.Done():
-				e.logger.Info("stopping load tasks...")
-				e.logger.Info("closing executor.tasksQueue...")
+				e.log.Info("stopping load tasks...")
+				e.log.Info("closing executor.tasksQueue...")
 				close(e.tasksQueue)
 				return
 			default:
@@ -169,7 +169,7 @@ func (e *Executor) Start() {
 
 	//listen to tcp-bus pull port for new messages
 	go func() {
-		e.logger.Info("starting tcp-bus listener")
+		e.log.Info("starting tcp-bus listener")
 		e.listenToBus()
 	}()
 
@@ -182,18 +182,18 @@ func (e *Executor) listenToBus() {
 	for {
 		select {
 		case <-e.ctx.Done():
-			e.logger.Info("stopping tcp-bus listener")
+			e.log.Info("stopping tcp-bus listener")
 			return
 		default:
 			time.Sleep(100 * time.Millisecond)
 			conn, err := net.Dial("tcp", busclient.PULL_PORT)
 			if err != nil {
-				e.logger.Error("%v", err)
+				e.log.Error("%v", err)
 				continue
 			}
 			data, err := io.ReadAll(conn)
 			if err != nil && !errors.Is(err, io.EOF) {
-				e.logger.Error("%v", err)
+				e.log.Error("%v", err)
 				conn.Close()
 				continue
 			}
@@ -202,7 +202,7 @@ func (e *Executor) listenToBus() {
 			err = json.Unmarshal(data, &message)
 
 			if err != nil {
-				e.logger.Error("%v", err)
+				e.log.Error("%v", err)
 				conn.Close()
 				continue
 			}
@@ -219,23 +219,23 @@ handleMessage handles messages sent on the tcp-bus and
 translates them into disable / stop / delete signals for tasks
 */
 func (e *Executor) handleMessage(msg *busclient.Message) {
-	e.logger.Info("handling message...")
+	e.log.Info("handling message...%v", msg)
 	cmd, ok := (*msg)["cmd"]
 	if !ok {
-		e.logger.Error("cmd not found in message: %v", msg)
+		e.log.Error("cmd not found in message: %v", msg)
 		return
 	}
 
 	taskID, ok := (*msg)["taskID"]
 
 	if !ok {
-		e.logger.Error("taskID not provided for startTask command: %v", msg)
+		e.log.Error("taskID not provided for startTask command: %v", msg)
 		return
 	}
 
 	stopChan, err := e.getStopChan(taskID)
 	if err != nil {
-		e.logger.Error("%v", err)
+		e.log.Error("%v", err)
 		return
 	}
 
@@ -254,7 +254,7 @@ func (e *Executor) handleMessage(msg *busclient.Message) {
 		}
 
 	default:
-		e.logger.Error("cannot handle message %v", cmd)
+		e.log.Error("cannot handle message %v", cmd)
 
 	}
 
@@ -284,7 +284,7 @@ func (e *Executor) loadTasks() error {
 		//set is queued to true to avoid enquing the same task since this function runs in a loop
 		task, err = e.repo.SetIsQueued(task.Slug, true)
 		if err != nil {
-			e.logger.Error("setIsQueued failed for task %v , err: %v", task.Slug, err)
+			e.log.Error("setIsQueued failed for task %v , err: %v", task.Slug, err)
 		} else {
 			e.tasksQueue <- task
 		}
@@ -308,11 +308,11 @@ func (e *Executor) logAndSetError(task *db.TaskModel, log *logger.Logger, err er
 }
 
 func (e *Executor) runTasks() {
-	e.logger.Info("running start function")
+	e.log.Info("running start function")
 	for {
 		select {
 		case <-e.ctx.Done():
-			e.logger.Info("stopping run tasks...")
+			e.log.Info("stopping run tasks...")
 			return
 		case task := <-e.tasksQueue:
 			stopChan := make(chan stopChanData, 1)
@@ -327,7 +327,7 @@ func (e *Executor) runTasks() {
 				case db.DayTimeTask:
 					e.runDayTimeTask(task)
 				default:
-					e.logger.Error("invalid task type")
+					e.log.Error("invalid task type")
 					return
 				}
 			}(task, stopChan)
@@ -365,12 +365,12 @@ func (e *Executor) deleteTaskLog(taskId string) error {
 	logsPath := task_obj.LogPath
 	exists, err := utils.PathExists(logsPath)
 	if err != nil {
-		e.logger.Error("%v", err)
+		e.log.Error("%v", err)
 		return err
 	}
 	if !exists {
 		err = fmt.Errorf("logs Path %v not found for task %v", logsPath, taskId)
-		e.logger.Error("%v", err)
+		e.log.Error("%v", err)
 		return err
 	}
 	return os.Remove(logsPath)
@@ -381,7 +381,7 @@ closeTaskChans closes & cleans up all references to the stopChan for task with `
 */
 func (e *Executor) closeTaskChans(taskId string) {
 	if stopChan, ok := e.stopChans[taskId]; !ok {
-		e.logger.Error("failed to close stop channel for task %v not found", taskId)
+		e.log.Error("failed to close stop channel for task %v not found", taskId)
 	} else {
 		close(stopChan)
 		delete(e.stopChans, taskId)
@@ -399,7 +399,7 @@ func (e *Executor) runHMSTask(task *db.TaskModel) {
 		return
 	}
 	scheduleInfo := task.ScheduleInfo
-	interval, err := e.getInterval(task)
+	interval, err := e.getInterval(task, log)
 	if err != nil {
 		e.logAndSetError(task, log, err)
 		return
@@ -446,19 +446,19 @@ func (e *Executor) tz() (string, error) {
 /*
 The executeTask function runs the task at intervals based on its scheduling information.
 */
-func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, duration time.Duration) {
+func (e *Executor) executeTask(task *db.TaskModel, log *logger.Logger, duration time.Duration) {
 	if duration <= 0 {
-		e.logAndSetError(task, logger, fmt.Errorf("duration value in executeTask should be atleast 1"))
+		e.logAndSetError(task, log, fmt.Errorf("duration value in executeTask should be atleast 1"))
 		return
 	}
 
-	if logger == nil {
-		e.logAndSetError(task, logger, fmt.Errorf("logger in executeTask should not be nil"))
+	if log == nil {
+		e.logAndSetError(task, log, fmt.Errorf("log in executeTask should not be nil"))
 		return
 	}
 
 	if task == nil {
-		e.logAndSetError(task, logger, fmt.Errorf("task in executeTask should not be nil"))
+		e.logAndSetError(task, log, fmt.Errorf("task in executeTask should not be nil"))
 		return
 	}
 
@@ -466,7 +466,7 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 	defer ticker.Stop()
 	stopChan, stopChanFound := e.stopChans[task.TaskId]
 	if !stopChanFound {
-		e.logAndSetError(task, logger, fmt.Errorf("stop channel for task %v not found", task.Slug))
+		e.logAndSetError(task, log, fmt.Errorf("stop channel for task %v not found", task.Slug))
 		return
 	}
 
@@ -478,31 +478,31 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 		if err == nil {
 			err = fmt.Errorf("executable directory does not exist")
 		}
-		e.logAndSetError(task, logger, err)
+		e.logAndSetError(task, log, err)
 		return
 	}
 	//copy here
 	executable, err = e.copyBinary(executable)
 	if err != nil {
-		e.logAndSetError(task, logger, err)
+		e.logAndSetError(task, log, err)
 		return
 	}
 	if !ok {
-		e.logAndSetError(task, logger, fmt.Errorf("executable not found at %v", executable))
+		e.logAndSetError(task, log, fmt.Errorf("executable not found at %v", executable))
 		return
 	}
 
 	task, err = e.repo.SetIsRunning(task.Slug, true)
 
 	if err != nil {
-		e.logAndSetError(task, logger, err)
+		e.logAndSetError(task, log, err)
 		e.closeTaskChans(task.TaskId)
 		return
 	}
 	for {
 		select {
 		case <-e.ctx.Done():
-			e.logger.Info("[ system shutdown ] terminating task: %v", task.TaskId)
+			e.log.Info("[ system shutdown ] terminating task: %v", task.TaskId)
 			e.closeTaskChans(task.TaskId)
 			return
 
@@ -510,18 +510,18 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 			if stopSig.disable {
 				_, err := e.repo.SetIsDisabled(task.Slug, true)
 				if err != nil {
-					e.logger.Error("setIsDisabled Error: %v", err)
+					e.log.Error("setIsDisabled Error: %v", err)
 				} else {
 					e.closeTaskChans(task.TaskId)
-					e.logger.Info("task %v disabled successfully", task.Slug)
+					e.log.Info("task %v disabled successfully", task.Slug)
 					return
 				}
 			} else if stopSig.stop {
-				e.logger.Info("[ stop task ] terminating task... %v", task.TaskId)
+				e.log.Info("[ stop task ] terminating task... %v", task.TaskId)
 				//set is running to false
 				_, err := e.repo.SetIsRunning(task.Slug, false)
 				if err != nil {
-					e.logger.Error("%v", err)
+					e.log.Error("%v", err)
 				} else {
 					e.closeTaskChans(task.TaskId)
 					return
@@ -529,19 +529,19 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 			} else if stopSig.delete {
 				err = e.deleteTaskLog(task.TaskId)
 				if err != nil {
-					e.logger.Error("delete logsPath error %v ", err)
+					e.log.Error("delete logsPath error %v ", err)
 				}
 				err = e.deleteTaskExecutable(task.Executable)
 				//delete binaries at executable path
 				if err != nil {
-					e.logger.Error("delete executables error: %v", err)
+					e.log.Error("delete executables error: %v", err)
 				}
 				//delete record from db and return
 				err := e.repo.DeleteTask(task)
 				if err != nil {
-					e.logger.Error("failed to delete task %v, err: %v", task.Slug, err)
+					e.log.Error("failed to delete task %v, err: %v", task.Slug, err)
 				} else {
-					e.logger.Info("task successfully deleted")
+					e.log.Info("task successfully deleted")
 					e.closeTaskChans(task.TaskId)
 					return
 				}
@@ -549,24 +549,24 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 
 		case <-ticker.C:
 			var execError error
-			execError = e.runBinary(logger, task.Executable, "--run")
+			execError = e.runBinary(log, task.Executable, "--run")
 			if execError != nil {
 				_, err := e.repo.SetIsError(task.Slug, true, execError.Error())
 				if err != nil {
-					logger.Error(err.Error())
+					log.Error(err.Error())
 				}
 				return
 			}
 			//if the task is a DayTime task, re-compute wait time and recreate ticker
 			if task.Type == db.DayTimeTask {
 				//determine next execution time based on scheduleInfo
-				duration, err := e.getInterval(task)
+				duration, err := e.getInterval(task, log)
 				if err != nil {
-					e.logAndSetError(task, logger, err)
+					e.logAndSetError(task, log, err)
 					e.closeTaskChans(task.TaskId)
 					return
 				}
-				e.logger.Info("task %v next execution in %v seconds", task.TaskId, duration/int64(time.Second))
+				e.log.Info("task %v next execution in %v seconds", task.TaskId, duration/int64(time.Second))
 				ticker.Stop()
 				ticker = time.NewTicker(time.Duration(duration))
 			}
@@ -580,7 +580,7 @@ RunDayTimeTask function handles execution of tasks that run on a
 specific day , at a specific time
 */
 func (e *Executor) runDayTimeTask(task *db.TaskModel) error {
-	//get logger
+	//get log
 	log, err := logger.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
 	if err != nil {
 		return err
@@ -593,7 +593,7 @@ func (e *Executor) runDayTimeTask(task *db.TaskModel) error {
 		return err
 	}
 	//call e.execute
-	duration, err := e.getInterval(task)
+	duration, err := e.getInterval(task, log)
 	if err != nil {
 		log.Error("error determining task interval %v", err)
 	}
@@ -625,7 +625,7 @@ func (e *Executor) copyBinary(path string) (string, error) {
 	return runPath, nil
 }
 
-func (e *Executor) runBinary(logger *logger.Logger, path string, args ...string) error {
+func (e *Executor) runBinary(log *logger.Logger, path string, args ...string) error {
 	cmd := exec.Command(path, args...)
 	output, err := cmd.CombinedOutput()
 	outputs := strings.Split(string(output), "\n")
@@ -634,7 +634,7 @@ func (e *Executor) runBinary(logger *logger.Logger, path string, args ...string)
 		// Log each line of output separately
 		for _, line := range outputs {
 			if len(line) > 0 {
-				logger.Error("%v", line)
+				log.Error("%v", line)
 			}
 		}
 		return fmt.Errorf("[ task error ]: %s", strings.Join(outputs, "\n"))
@@ -643,7 +643,7 @@ func (e *Executor) runBinary(logger *logger.Logger, path string, args ...string)
 	// Log each line of output separately
 	for _, line := range outputs {
 		if len(line) > 0 {
-			logger.Info("%v", line)
+			log.Info("%v", line)
 		}
 	}
 
@@ -683,7 +683,7 @@ func (e *Executor) getLoc() (*time.Location, error) {
 /*
 getInterval function determines a duration relative to the current time based on a task's scheduling info.
 */
-func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
+func (e *Executor) getInterval(task *db.TaskModel, log *logger.Logger) (int64, error) {
 	loc, err := e.getLoc()
 	if err != nil {
 		return -1, err
@@ -693,11 +693,28 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 		return -1, err
 	}
 	if task.NextExecutionTime != nil && now.Before(*task.NextExecutionTime) {
+		log.Info("Task Next Execution Time: %v", task.NextExecutionTime)
 		duration := int64(task.NextExecutionTime.Sub(now))
 		if duration < 1 {
 			duration = 1
 		}
+		log.Info("executing in: %d ", duration/int64(time.Second))
 		return duration, nil
+	} else if task.NextExecutionTime != nil {
+		//its a time in the past and should be reset to nil
+		task.NextExecutionTime = nil
+
+		err := e.repo.SaveTask(task)
+
+		if err != nil {
+			return -1, err
+		}
+
+		task, err = e.repo.GetTaskByName(task.Name)
+
+		if err != nil {
+			return -1, err
+		}
 	}
 	scheduleInfo := task.ScheduleInfo
 	if scheduleInfo == nil {
@@ -719,7 +736,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 				return -1, fmt.Errorf("invalid interval value , must be >= 1")
 			}
 		}
-		e.logger.Info("task %v interval: %v", task.Name, value)
+		e.log.Info("task %v interval: %v", task.Name, value)
 		return int64(value), nil
 	} else if task.Type == db.DayTimeTask {
 		day, ok := scheduleInfo["day"]
@@ -771,7 +788,7 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 
 		if daysUntilTarget == 0 {
 			nextExecutionTime := e.getNextExecutonTime(now, taskTime, daysUntilTarget, loc)
-			e.logger.Info("task %v nextExecutionTime %v", task.Slug, nextExecutionTime)
+			e.log.Info("task %v nextExecutionTime %v", task.Slug, nextExecutionTime)
 			if now.Before(nextExecutionTime) {
 				err = e.repo.UpdateExecutionTime(task, &nextExecutionTime, &now)
 				if err != nil {
@@ -782,14 +799,14 @@ func (e *Executor) getInterval(task *db.TaskModel) (int64, error) {
 			daysUntilTarget = 7
 		}
 
-		e.logger.Info("[task-%v] days until next run: %v", task.Slug, daysUntilTarget)
+		e.log.Info("[task-%v] days until next run: %v", task.Slug, daysUntilTarget)
 
 		nextExecutionTime := e.getNextExecutonTime(now, taskTime, daysUntilTarget, loc)
-		e.logger.Info("[task-%v] NextExecutionTime: %v", task.Slug, nextExecutionTime)
+		e.log.Info("[task-%v] NextExecutionTime: %v", task.Slug, nextExecutionTime)
 		duration := time.Until(nextExecutionTime)
-		e.logger.Info("updating NextExecutionTime...")
+		e.log.Info("updating NextExecutionTime...")
 		err = e.repo.UpdateExecutionTime(task, &nextExecutionTime, &now)
-		e.logger.Info("updateExecutionTime: %v", err)
+		e.log.Info("updateExecutionTime: %v", err)
 		if err != nil {
 			return -1, err
 		}
