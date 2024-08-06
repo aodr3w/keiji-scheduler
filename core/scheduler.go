@@ -513,6 +513,7 @@ func (e *Executor) executeTask(task *db.TaskModel, log *logger.Logger, duration 
 					e.log.Error("setIsDisabled Error: %v", err)
 				} else {
 					e.closeTaskChans(task.TaskId)
+					log.Info("task disabled, exiting...")
 					e.log.Info("task %v disabled successfully", task.Slug)
 					return
 				}
@@ -524,6 +525,7 @@ func (e *Executor) executeTask(task *db.TaskModel, log *logger.Logger, duration 
 					e.log.Error("%v", err)
 				} else {
 					e.closeTaskChans(task.TaskId)
+					log.Info("task terminated, exiting...")
 					return
 				}
 			} else if stopSig.delete {
@@ -541,6 +543,7 @@ func (e *Executor) executeTask(task *db.TaskModel, log *logger.Logger, duration 
 				if err != nil {
 					e.log.Error("failed to delete task %v, err: %v", task.Slug, err)
 				} else {
+					log.Info("task deleted, exiting...")
 					e.log.Info("task successfully deleted")
 					e.closeTaskChans(task.TaskId)
 					return
