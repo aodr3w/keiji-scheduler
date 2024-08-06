@@ -701,7 +701,6 @@ func (e *Executor) getInterval(task *db.TaskModel, log *logger.Logger) (int64, e
 		if duration < 1 {
 			duration = 1
 		}
-		log.Info("executing in: %d ", duration/int64(time.Second))
 		return duration, nil
 	} else if task.NextExecutionTime != nil {
 		//its a time in the past and should be reset to nil
