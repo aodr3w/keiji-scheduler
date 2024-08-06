@@ -549,7 +549,7 @@ func (e *Executor) executeTask(task *db.TaskModel, logger *logger.Logger, durati
 
 		case <-ticker.C:
 			var execError error
-			execError = e.runBinary(logger, task.Executable)
+			execError = e.runBinary(logger, task.Executable, "--run")
 			if execError != nil {
 				_, err := e.repo.SetIsError(task.Slug, true, execError.Error())
 				if err != nil {
