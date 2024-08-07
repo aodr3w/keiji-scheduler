@@ -18,9 +18,9 @@ import (
 
 	busclient "github.com/aodr3w/keiji-bus-client/client"
 	"github.com/aodr3w/keiji-core/db"
+	"github.com/aodr3w/keiji-core/logging"
 	"github.com/aodr3w/keiji-core/paths"
 	"github.com/aodr3w/keiji-core/utils"
-	"github.com/aodr3w/logger"
 	"github.com/joho/godotenv"
 )
 
@@ -40,7 +40,7 @@ functions that facilitate concurrent execution of tasks
 */
 type Executor struct {
 	repo       *db.Repo
-	log        *logger.Logger
+	log        *logging.Logger
 	stopChans  map[string]chan stopChanData
 	tasksQueue chan *db.TaskModel
 	ctx        context.Context
@@ -69,7 +69,7 @@ func NewExecutor() (*Executor, error) {
 	if err != nil {
 		return nil, err
 	}
-	log, err := logger.NewFileLogger(paths.SCHEDULER_LOGS)
+	log, err := logging.NewFileLogger(paths.SCHEDULER_LOGS)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func (e *Executor) loadTasks() error {
 RunTasks reads tasks from the taskQueue
 and runs each task in a seperate goroutine.
 */
-func (e *Executor) logAndSetError(task *db.TaskModel, log *logger.Logger, err error) {
+func (e *Executor) logAndSetError(task *db.TaskModel, log *logging.Logger, err error) {
 	if err != nil {
 		err := fmt.Errorf("error: %v for task %v", err, task.TaskId)
 		log.Error("an error occured: %v", err)
@@ -393,7 +393,7 @@ RunHMSTask handles execution of tasks that are scheduled to run
 on an interval of hours (H), minutes (M) or seconds (S)
 */
 func (e *Executor) runHMSTask(task *db.TaskModel) {
-	log, err := logger.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
+	log, err := logging.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
 	if err != nil {
 		e.logAndSetError(task, log, err)
 		return
@@ -446,7 +446,7 @@ func (e *Executor) tz() (string, error) {
 /*
 The executeTask function runs the task at intervals based on its scheduling information.
 */
-func (e *Executor) executeTask(task *db.TaskModel, log *logger.Logger, duration time.Duration) {
+func (e *Executor) executeTask(task *db.TaskModel, log *logging.Logger, duration time.Duration) {
 	if duration <= 0 {
 		e.logAndSetError(task, log, fmt.Errorf("duration value in executeTask should be atleast 1"))
 		return
@@ -585,7 +585,7 @@ specific day , at a specific time
 */
 func (e *Executor) runDayTimeTask(task *db.TaskModel) error {
 	//get log
-	log, err := logger.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
+	log, err := logging.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
 	if err != nil {
 		return err
 	}
@@ -629,7 +629,7 @@ func (e *Executor) copyBinary(path string) (string, error) {
 	return runPath, nil
 }
 
-func (e *Executor) runBinary(log *logger.Logger, path string, args ...string) error {
+func (e *Executor) runBinary(log *logging.Logger, path string, args ...string) error {
 	cmd := exec.Command(path, args...)
 	output, err := cmd.CombinedOutput()
 	outputs := strings.Split(string(output), "\n")
@@ -687,7 +687,7 @@ func (e *Executor) getLoc() (*time.Location, error) {
 /*
 getInterval function determines a duration relative to the current time based on a task's scheduling info.
 */
-func (e *Executor) getInterval(task *db.TaskModel, log *logger.Logger) (int64, error) {
+func (e *Executor) getInterval(task *db.TaskModel, log *logging.Logger) (int64, error) {
 	loc, err := e.getLoc()
 	if err != nil {
 		return -1, err
