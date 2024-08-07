@@ -16,7 +16,7 @@ import (
 
 	"sync"
 
-	busclient "github.com/aodr3w/keiji-bus-client/client"
+	busclient "github.com/aodr3w/keiji-core/bus"
 	"github.com/aodr3w/keiji-core/db"
 	"github.com/aodr3w/keiji-core/logging"
 	"github.com/aodr3w/keiji-core/paths"
