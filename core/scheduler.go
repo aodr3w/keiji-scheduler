@@ -16,7 +16,7 @@ import (
 
 	"sync"
 
-	busclient "github.com/aodr3w/keiji-core/bus"
+	"github.com/aodr3w/keiji-core/bus"
 	"github.com/aodr3w/keiji-core/db"
 	"github.com/aodr3w/keiji-core/logging"
 	"github.com/aodr3w/keiji-core/paths"
@@ -186,7 +186,7 @@ func (e *Executor) listenToBus() {
 			return
 		default:
 			time.Sleep(100 * time.Millisecond)
-			conn, err := net.Dial("tcp", busclient.PULL_PORT)
+			conn, err := net.Dial("tcp", bus.PULL_PORT)
 			if err != nil {
 				e.log.Error("%v", err)
 				continue
@@ -198,7 +198,7 @@ func (e *Executor) listenToBus() {
 				continue
 			}
 			//read message if any
-			var message busclient.Message
+			var message bus.Message
 			err = json.Unmarshal(data, &message)
 
 			if err != nil {
@@ -218,7 +218,7 @@ func (e *Executor) listenToBus() {
 handleMessage handles messages sent on the tcp-bus and
 translates them into disable / stop / delete signals for tasks
 */
-func (e *Executor) handleMessage(msg *busclient.Message) {
+func (e *Executor) handleMessage(msg *bus.Message) {
 	e.log.Info("handling message...%v", msg)
 	cmd, ok := (*msg)["cmd"]
 	if !ok {
