@@ -1,7 +1,5 @@
-github.com/aodr3w/keiji-core v0.0.0-20240807071445-1a711c88890d h1:Hxt2idlI0g5I7gzu3/3qsgzIxdu+mnXp3rrhzu/1sYU=
-github.com/aodr3w/keiji-core v0.0.0-20240807071445-1a711c88890d/go.mod h1:74OEd4Bke4PpyWk6Ai/Z+bK84msq4v0JRbkNytCtfQM=
-github.com/aodr3w/logger v0.0.0-20240718094903-5071dde6db05 h1:9Kc7Be+L8z1v3PeWbcmsVGQ1zvszmv1q58D8l1dh0Bs=
-github.com/aodr3w/logger v0.0.0-20240718094903-5071dde6db05/go.mod h1:DT4Tj2GLcyqSDJ4tGbKJk9Df0WA2EJ8wUlP1FJ+YFqE=
+github.com/aodr3w/keiji-core v0.0.0-20240807081309-c632afa2cd26 h1:FCnijoFD9WLrqJkmXZ9Yg5k+cVms1eeH/zE3ohClu7M=
+github.com/aodr3w/keiji-core v0.0.0-20240807081309-c632afa2cd26/go.mod h1:7tvGeJldmZ1epqi1J7FG5qF3lztR87abWY9HweujYAM=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
