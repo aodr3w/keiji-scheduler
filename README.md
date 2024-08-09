@@ -1,2 +1,8 @@
 # KEIJI-SCHEDULER
-- the keiji-scheduler is responsible for managing task life-cycles. it retrieves runnable tasks from the database and launches them concurrently. it has also handles communication with the message bus to propagate termination and disable signals to running tasks as well as to itself
+
+## about
+keiji-scheduler is a go program responsible for managing the execution cycle of tasks.
+it achieves this by reading tasks from a database and scheduling each task to run its own goroutine on an interval unique the task.
+
+## use by;
+- keiji  - https://github.com/aodr3w/keiji
