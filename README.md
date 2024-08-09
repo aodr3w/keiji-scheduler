@@ -19,24 +19,24 @@ keiji-scheduler is a Go program responsible for managing the execution cycle of 
 - **Context-based System Termination**: System-level shutdowns are managed through context propagation, ensuring all tasks are properly terminated.
 
 
-## INSTALLATION
+## installation
 
 `go install github.com/aodr3w/keiji-scheduler@latest`
 
 
-## START
+## start
 
 `keiji-scheduler`
 
 This will start the scheduler, which will automatically begin reading tasks from the configured database, scheduling them according to their scheduling information, and listening to the TCP bus for control messages.
 
 
-## LOGGING
+## logging
 
 - logs are written to `$HOME/.keiji/logs/services/scheduler/scheduler.log`
 
 
-## TCP Bus Commands
+## tcp-bus commands
 
 keiji-scheduler listens to a TCP bus for the following commands:
 
@@ -56,7 +56,7 @@ Each task has a termination channel that it checks between intervals to determin
 https://github.com/aodr3w/Keiji
 
 
-## LICENSE
+## license
 
 keiji-scheduler is open-source software licensed under the MIT License. See the LICENSE file for more details:
 
