@@ -59,3 +59,5 @@ https://github.com/aodr3w/Keiji
 ## LICENSE
 
 keiji-scheduler is open-source software licensed under the MIT License. See the LICENSE file for more details:
+
+https://github.com/aodr3w/keiji-scheduler/blob/main/LICENSE
