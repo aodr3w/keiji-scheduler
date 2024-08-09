@@ -2,13 +2,13 @@
 
 ## about
 
-keiji-scheduler is a Go program responsible for managing the execution cycle of tasks within the keiji task scheduling system. It reads tasks from a database and schedules each task to run in its own goroutine at an interval unique to that task. Additionally, keiji-scheduler listens for messages over a TCP bus, allowing it to gracefully terminate, disable, or delete tasks based on directives received.
+keiji-scheduler is a Go program responsible for managing the execution cycle of tasks within the keiji task scheduling system. It reads tasks from a database and schedules each task to run in its own goroutine at an interval unique to each task. Additionally, keiji-scheduler listens for messages over a TCP bus, allowing it to gracefully terminate, disable, or delete tasks based on directives received.
 
 ## features
 
 - **Concurrent Task Execution**: Each task runs in its own goroutine, ensuring concurrent / non-blocking processing.
 
-- **Unique Intervals**: Tasks are scheduled to run at intervals derived from their unique scheduling information.
+- **Unique Intervals**: Each Task is scheduled to run at an interval derived from its own scheduling information.
 
 - **Database-Driven**: Tasks are stored and managed in a database, allowing for dynamic updates and easy management.
 
@@ -28,7 +28,7 @@ keiji-scheduler is a Go program responsible for managing the execution cycle of 
 
 `keiji-scheduler`
 
-This will start the scheduler, which will automatically begin reading tasks from the configured database, scheduling them according to their scheduling information, and listening to the TCP bus for control messages.
+This will start the scheduler, which will automatically begin reading tasks from the configured database and listening to the TCP bus's `PULL PORT` for control messages.
 
 
 ## logging
