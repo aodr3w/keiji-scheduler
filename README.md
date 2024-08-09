@@ -1,0 +1,2 @@
+# KEIJI-SCHEDULER
+- the keiji-scheduler is responsible for managing task life-cycles. it retrieves runnable tasks from the database and launches them concurrently. it has also handles communication with the message bus to propagate termination and disable signals to running tasks as well as to itself
