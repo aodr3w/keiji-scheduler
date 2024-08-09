@@ -393,7 +393,7 @@ RunHMSTask handles execution of tasks that are scheduled to run
 on an interval of hours (H), minutes (M) or seconds (S)
 */
 func (e *Executor) runHMSTask(task *db.TaskModel) {
-	log, err := logging.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
+	log, err := logging.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG_DIR(task.Slug), task.Slug))
 	if err != nil {
 		e.logAndSetError(task, log, err)
 		return
@@ -585,7 +585,7 @@ specific day , at a specific time
 */
 func (e *Executor) runDayTimeTask(task *db.TaskModel) error {
 	//get log
-	log, err := logging.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG, task.Slug))
+	log, err := logging.NewFileLogger(fmt.Sprintf("%v/%v", paths.TASK_LOG_DIR(task.Slug), task.Slug))
 	if err != nil {
 		return err
 	}
