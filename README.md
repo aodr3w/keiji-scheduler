@@ -6,9 +6,9 @@ keiji-scheduler is a Go program responsible for managing the execution cycle of 
 
 ## features
 
-- Concurrent Task Execution: Each task runs in its own goroutine, ensuring parallel processing.
+- Concurrent Task Execution: Each task runs in its own goroutine, ensuring concurrent / non-blocking processing.
 
-- Customizable Intervals: Tasks can be scheduled to run at intervals specific to their requirements.
+- Unique Intervals: Tasks can be scheduled to run at intervals based on saved scheduling information
 
 - Database-Driven: Tasks are stored and managed in a database, allowing for dynamic updates and easy management.
 
@@ -28,7 +28,7 @@ keiji-scheduler is a Go program responsible for managing the execution cycle of 
 
 `keiji-scheduler`
 
-This will start the scheduler, which will automatically begin reading tasks from the configured database, scheduling them according to their specified intervals, and listening to the TCP bus for control messages.
+This will start the scheduler, which will automatically begin reading tasks from the configured database, scheduling them according to their scheduling information, and listening to the TCP bus for control messages.
 
 
 ## LOGGING
@@ -42,7 +42,7 @@ keiji-scheduler listens to a TCP bus for the following commands:
 
 **disable**: Disables a specific task, preventing it from running in the future.
 
-**stop**: Immediately stops a currently running task. unless the task is also disabled it will be picked-up immediately therfore this command is useful when trying to restart a task due to changes in the tasks execution binary.
+**stop**: Immediately stops a currently running task, identifed by its Id which is stored in the message. Unless the task is also disabled, it will be picked-up immediately, therfore this command is useful when trying to restart a task due to changes in the task's execution binary.
 
 **delete**: Deletes a task, including its binaries and logs, and removes it from the database.
 
