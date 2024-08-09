@@ -6,17 +6,17 @@ keiji-scheduler is a Go program responsible for managing the execution cycle of 
 
 ## features
 
-- Concurrent Task Execution: Each task runs in its own goroutine, ensuring concurrent / non-blocking processing.
+- **Concurrent Task Execution**: Each task runs in its own goroutine, ensuring concurrent / non-blocking processing.
 
-- Unique Intervals: Tasks are scheduled to run at intervals derived from their unique scheduling information.
+- **Unique Intervals**: Tasks are scheduled to run at intervals derived from their unique scheduling information.
 
-- Database-Driven: Tasks are stored and managed in a database, allowing for dynamic updates and easy management.
+- **Database-Driven**: Tasks are stored and managed in a database, allowing for dynamic updates and easy management.
 
-- TCP Bus Integration: Supports external control via a TCP bus for terminating, disabling, or deleting tasks.
+- **TCP Bus Integration**: Supports external control via a TCP bus for terminating, disabling, or deleting tasks.
 
-- Graceful Termination: Each task checks a termination channel between intervals, allowing for smooth shutdowns.
+- **Graceful Termination**: Each task checks a termination channel between intervals, allowing for smooth shutdowns.
 
-- Context-based System Termination: System-level shutdowns are managed through context propagation, ensuring all tasks are properly terminated.
+- **Context-based System Termination**: System-level shutdowns are managed through context propagation, ensuring all tasks are properly terminated.
 
 
 ## INSTALLATION
