@@ -8,7 +8,7 @@ keiji-scheduler is a Go program responsible for managing the execution cycle of 
 
 - Concurrent Task Execution: Each task runs in its own goroutine, ensuring concurrent / non-blocking processing.
 
-- Unique Intervals: Tasks can be scheduled to run at intervals based on saved scheduling information
+- Unique Intervals: Tasks are scheduled to run at intervals derived from their unique scheduling information.
 
 - Database-Driven: Tasks are stored and managed in a database, allowing for dynamic updates and easy management.
 
