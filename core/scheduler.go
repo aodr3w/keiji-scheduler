@@ -777,7 +777,7 @@ func (e *Executor) getInterval(task *db.TaskModel, log *logging.Logger) (int64, 
 			return -1, err
 		}
 
-		taskTime, err := time.Parse("15:04", tStr)
+		taskTime, err := utils.ParseTimeStr(tStr)
 
 		if err != nil {
 			err := fmt.Errorf("failed to parse timeStr: %v due to error %v for task %v", tStr, err, task.Slug)

@@ -3,7 +3,7 @@ module github.com/aodr3w/keiji-scheduler
 go 1.22.5
 
 require (
-	github.com/aodr3w/keiji-core v0.2.2
+	github.com/aodr3w/keiji-core v0.2.3
 	github.com/joho/godotenv v1.5.1
 )
 
