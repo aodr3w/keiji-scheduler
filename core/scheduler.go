@@ -339,44 +339,6 @@ func (e *Executor) runTasks() {
 }
 
 /*
-deleteTaskExecutable deletes the task binary located at the path
-passed to the function.
-*/
-func (e *Executor) deleteTaskExecutable(executable string) error {
-	dir := filepath.Dir(executable)
-	runFile := filepath.Join(dir, fmt.Sprintf("%v_run.bin", strings.ReplaceAll(filepath.Base(executable), ".bin", "")))
-	for _, f := range []string{executable, runFile} {
-		err := os.Remove(f)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-/*
-deleteTaskLog deletes the logFile for task with `taskId`
-*/
-func (e *Executor) deleteTaskLog(taskId string) error {
-	task_obj, err := e.repo.GetTaskByID(taskId)
-	if err != nil {
-		return err
-	}
-	logsPath := task_obj.LogPath
-	exists, err := utils.PathExists(logsPath)
-	if err != nil {
-		e.log.Error("%v", err)
-		return err
-	}
-	if !exists {
-		err = fmt.Errorf("logs Path %v not found for task %v", logsPath, taskId)
-		e.log.Error("%v", err)
-		return err
-	}
-	return os.Remove(logsPath)
-}
-
-/*
 closeTaskChans closes & cleans up all references to the stopChan for task with `taskID“
 */
 func (e *Executor) closeTaskChans(taskId string) {
@@ -530,11 +492,11 @@ func (e *Executor) executeTask(task *db.TaskModel, log *logging.Logger, duration
 					return
 				}
 			} else if stopSig.delete {
-				err = e.deleteTaskLog(task.TaskId)
+				err = utils.DeleteTaskLog(task.LogPath)
 				if err != nil {
 					e.log.Error("delete logsPath error %v ", err)
 				}
-				err = e.deleteTaskExecutable(task.Executable)
+				err = utils.DeleteTaskExecutable(task.Executable)
 				//delete binaries at executable path
 				if err != nil {
 					e.log.Error("delete executables error: %v", err)
