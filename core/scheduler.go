@@ -739,7 +739,7 @@ func (e *Executor) getInterval(task *db.TaskModel, log *logging.Logger) (int64, 
 				return -1, fmt.Errorf("invalid interval value , must be >= 1")
 			}
 		}
-		e.log.Info("task %v interval: %v", task.Name, value)
+		log.Info("task %v interval: %v", task.Name, value)
 		return int64(value), nil
 	} else if task.Type == db.DayTimeTask {
 		day, ok := scheduleInfo["day"]
@@ -791,7 +791,7 @@ func (e *Executor) getInterval(task *db.TaskModel, log *logging.Logger) (int64, 
 
 		if daysUntilTarget == 0 {
 			nextExecutionTime := e.getNextExecutonTime(now, taskTime, daysUntilTarget, loc)
-			e.log.Info("task %v nextExecutionTime %v", task.Slug, nextExecutionTime)
+			log.Info("task %v nextExecutionTime %v", task.Slug, nextExecutionTime)
 			if now.Before(nextExecutionTime) {
 				err = e.repo.UpdateExecutionTime(task, &nextExecutionTime, &now)
 				if err != nil {
@@ -802,14 +802,14 @@ func (e *Executor) getInterval(task *db.TaskModel, log *logging.Logger) (int64, 
 			daysUntilTarget = 7
 		}
 
-		e.log.Info("[task-%v] days until next run: %v", task.Slug, daysUntilTarget)
+		log.Info("[task-%v] days until next run: %v", task.Slug, daysUntilTarget)
 
 		nextExecutionTime := e.getNextExecutonTime(now, taskTime, daysUntilTarget, loc)
-		e.log.Info("[task-%v] NextExecutionTime: %v", task.Slug, nextExecutionTime)
+		log.Info("[task-%v] NextExecutionTime: %v", task.Slug, nextExecutionTime)
 		duration := time.Until(nextExecutionTime)
-		e.log.Info("updating NextExecutionTime...")
+		log.Info("updating NextExecutionTime...")
 		err = e.repo.UpdateExecutionTime(task, &nextExecutionTime, &now)
-		e.log.Info("updateExecutionTime: %v", err)
+		log.Info("updateExecutionTime: %v", err)
 		if err != nil {
 			return -1, err
 		}
