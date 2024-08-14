@@ -584,7 +584,7 @@ func (e *Executor) copyBinary(path string) (string, error) {
 	}
 	fileName := strings.ReplaceAll(filepath.Base(path), ".bin", "_run.bin")
 	runPath := fmt.Sprintf("%v/%v", execDir, fileName)
-	err := utils.CopyFile(path, runPath)
+	err := utils.CopyFile(path, runPath, 0755)
 	if err != nil {
 		return "", err
 	}
